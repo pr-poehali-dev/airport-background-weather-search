@@ -14,6 +14,8 @@ interface Flight {
   time: string;
   status: 'On Time' | 'Delayed' | 'Boarding' | 'Departed' | 'Arrived';
   gate?: string;
+  registration?: string;
+  parkingPosition?: string;
 }
 
 interface MetarData {
@@ -32,19 +34,36 @@ const Index = () => {
   const [icaoCode, setIcaoCode] = useState('');
   const [metarData, setMetarData] = useState<MetarData | null>(null);
   const [searchIcao, setSearchIcao] = useState('');
+  const [scheduleAirport, setScheduleAirport] = useState('');
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useState(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  });
+
+  const generateFlightTime = (baseMinutes: number) => {
+    const time = new Date(currentTime);
+    time.setMinutes(time.getMinutes() + baseMinutes);
+    return time.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  };
 
   const departures: Flight[] = [
-    { flightNumber: 'SU 1234', airline: 'Аэрофлот', airport: 'Санкт-Петербург', icao: 'ULLI', time: '14:30', status: 'On Time', gate: 'A12' },
-    { flightNumber: 'S7 5678', airline: 'S7 Airlines', airport: 'Новосибирск', icao: 'UNNT', time: '15:15', status: 'Boarding', gate: 'B7' },
-    { flightNumber: 'U6 9012', airline: 'Уральские авиалинии', airport: 'Екатеринбург', icao: 'USSS', time: '16:00', status: 'Delayed', gate: 'C3' },
-    { flightNumber: 'DP 3456', airline: 'Победа', airport: 'Сочи', icao: 'URSS', time: '16:45', status: 'On Time', gate: 'D15' },
+    { flightNumber: 'SU 1234', airline: 'Аэрофлот', airport: 'Санкт-Петербург', icao: 'ULLI', time: generateFlightTime(30), status: 'On Time', gate: 'A12', registration: 'RA-73126', parkingPosition: '15' },
+    { flightNumber: 'S7 5678', airline: 'S7 Airlines', airport: 'Новосибирск', icao: 'UNNT', time: generateFlightTime(75), status: 'Boarding', gate: 'B7', registration: 'VQ-BKV', parkingPosition: '23' },
+    { flightNumber: 'U6 9012', airline: 'Уральские авиалинии', airport: 'Екатеринбург', icao: 'USSS', time: generateFlightTime(120), status: 'Delayed', gate: 'C3', registration: 'VP-BQV', parkingPosition: '8' },
+    { flightNumber: 'DP 3456', airline: 'Победа', airport: 'Сочи', icao: 'URSS', time: generateFlightTime(165), status: 'On Time', gate: 'D15', registration: 'VP-BPK', parkingPosition: '42' },
+    { flightNumber: 'SU 5567', airline: 'Аэрофлот', airport: 'Минск', icao: 'UMMS', time: generateFlightTime(200), status: 'On Time', gate: 'A8', registration: 'RA-89001', parkingPosition: '11' },
   ];
 
   const arrivals: Flight[] = [
-    { flightNumber: 'SU 2468', airline: 'Аэрофлот', airport: 'Казань', icao: 'UWKD', time: '13:45', status: 'Arrived', gate: 'A5' },
-    { flightNumber: 'S7 8024', airline: 'S7 Airlines', airport: 'Владивосток', icao: 'UHWW', time: '14:20', status: 'On Time', gate: 'B12' },
-    { flightNumber: 'U6 1357', airline: 'Уральские авиалинии', airport: 'Краснодар', icao: 'URKK', time: '15:05', status: 'On Time', gate: 'C8' },
-    { flightNumber: 'DP 7890', airline: 'Победа', airport: 'Калининград', icao: 'UMKK', time: '15:50', status: 'On Time', gate: 'D2' },
+    { flightNumber: 'SU 2468', airline: 'Аэрофлот', airport: 'Казань', icao: 'UWKD', time: generateFlightTime(-15), status: 'Arrived', gate: 'A5', registration: 'RA-73043', parkingPosition: '7' },
+    { flightNumber: 'S7 8024', airline: 'S7 Airlines', airport: 'Владивосток', icao: 'UHWW', time: generateFlightTime(20), status: 'On Time', gate: 'B12', registration: 'VQ-BDX', parkingPosition: '31' },
+    { flightNumber: 'U6 1357', airline: 'Уральские авиалинии', airport: 'Краснодар', icao: 'URKK', time: generateFlightTime(65), status: 'On Time', gate: 'C8', registration: 'VP-BLF', parkingPosition: '19' },
+    { flightNumber: 'DP 7890', airline: 'Победа', airport: 'Калининград', icao: 'UMKK', time: generateFlightTime(110), status: 'On Time', gate: 'D2', registration: 'VP-BQQ', parkingPosition: '26' },
+    { flightNumber: 'S7 4432', airline: 'S7 Airlines', airport: 'Иркутск', icao: 'UIII', time: generateFlightTime(145), status: 'On Time', gate: 'B15', registration: 'VQ-BYB', parkingPosition: '34' },
   ];
 
   const handleMetarSearch = () => {
@@ -133,6 +152,14 @@ const Index = () => {
                 >
                   <Icon name="Building2" size={18} />
                   Авиакомпании
+                </Button>
+                <Button 
+                  variant={currentSection === 'schedule' ? 'default' : 'ghost'}
+                  onClick={() => setCurrentSection('schedule')}
+                  className="gap-2"
+                >
+                  <Icon name="CalendarClock" size={18} />
+                  Расписание
                 </Button>
                 <Button 
                   variant={currentSection === 'contacts' ? 'default' : 'ghost'}
@@ -486,6 +513,157 @@ const Index = () => {
                   </CardContent>
                 </Card>
               </div>
+            </div>
+          )}
+
+          {currentSection === 'schedule' && (
+            <div className="space-y-6 animate-fade-in max-w-5xl mx-auto">
+              <div className="text-center space-y-2 py-8">
+                <h2 className="text-4xl font-bold">Расписание рейсов</h2>
+                <p className="text-muted-foreground">Актуальное расписание по аэропортам в реальном времени</p>
+                <div className="text-primary font-mono text-lg mt-4">
+                  {currentTime.toLocaleString('ru-RU', { 
+                    day: '2-digit', 
+                    month: '2-digit', 
+                    year: 'numeric',
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    second: '2-digit'
+                  })}
+                </div>
+              </div>
+
+              <Card className="border-primary/30 bg-card/50 backdrop-blur">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Icon name="Search" className="text-primary" />
+                    Поиск расписания по аэропорту
+                  </CardTitle>
+                  <CardDescription>Введите название аэропорта для просмотра расписания</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex gap-2">
+                    <Input 
+                      placeholder="Например: Шереметьево, Внуково, Домодедово"
+                      value={scheduleAirport}
+                      onChange={(e) => setScheduleAirport(e.target.value)}
+                      className="text-lg bg-background/50"
+                    />
+                    <Button onClick={() => setScheduleAirport('')} variant="outline">
+                      Сбросить
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {scheduleAirport && (
+                <div className="space-y-6 animate-fade-in">
+                  <div className="bg-primary/10 border border-primary/30 rounded-lg p-4">
+                    <h3 className="text-2xl font-bold text-center">
+                      Расписание аэропорта: {scheduleAirport}
+                    </h3>
+                  </div>
+
+                  <Tabs defaultValue="departures" className="w-full">
+                    <TabsList className="grid w-full grid-cols-2 h-12">
+                      <TabsTrigger value="departures" className="gap-2 text-base">
+                        <Icon name="PlaneTakeoff" size={20} />
+                        Вылеты
+                      </TabsTrigger>
+                      <TabsTrigger value="arrivals" className="gap-2 text-base">
+                        <Icon name="PlaneLanding" size={20} />
+                        Прилёты
+                      </TabsTrigger>
+                    </TabsList>
+                    
+                    <TabsContent value="departures" className="space-y-4 mt-6">
+                      {departures.map((flight) => (
+                        <Card key={flight.flightNumber} className="border-border/50 bg-card/50 backdrop-blur">
+                          <CardContent className="p-6">
+                            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
+                              <div className="text-center">
+                                <div className="text-xs text-muted-foreground mb-1">ВРЕМЯ ВЫЛЕТА</div>
+                                <div className="text-3xl font-bold font-mono text-primary">{flight.time}</div>
+                              </div>
+                              
+                              <div className="text-center">
+                                <div className="text-xs text-muted-foreground mb-1">РЕЙС</div>
+                                <div className="font-bold text-xl">{flight.flightNumber}</div>
+                                <div className="text-sm text-muted-foreground">{flight.airline}</div>
+                              </div>
+                              
+                              <div className="text-center">
+                                <div className="text-xs text-muted-foreground mb-1">НАПРАВЛЕНИЕ</div>
+                                <div className="font-semibold text-lg">{flight.airport}</div>
+                                <div className="text-sm text-muted-foreground font-mono">{flight.icao}</div>
+                              </div>
+                              
+                              <div className="text-center">
+                                <div className="text-xs text-muted-foreground mb-1">РЕГИСТРАЦИЯ</div>
+                                <div className="font-mono font-bold text-lg text-accent">{flight.registration}</div>
+                                <div className="text-xs text-muted-foreground mt-1">СТОЯНКА: {flight.parkingPosition}</div>
+                              </div>
+                              
+                              <div className="text-center">
+                                <div className="text-xs text-muted-foreground mb-1">ВЫХОД</div>
+                                <div className="bg-muted/50 px-4 py-2 rounded-lg inline-block mb-2">
+                                  <div className="font-bold text-2xl font-mono">{flight.gate}</div>
+                                </div>
+                                <Badge className={`px-4 py-1 text-sm font-semibold ${getStatusColor(flight.status)}`}>
+                                  {flight.status}
+                                </Badge>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </TabsContent>
+                    
+                    <TabsContent value="arrivals" className="space-y-4 mt-6">
+                      {arrivals.map((flight) => (
+                        <Card key={flight.flightNumber} className="border-border/50 bg-card/50 backdrop-blur">
+                          <CardContent className="p-6">
+                            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
+                              <div className="text-center">
+                                <div className="text-xs text-muted-foreground mb-1">ВРЕМЯ ПРИЛЁТА</div>
+                                <div className="text-3xl font-bold font-mono text-primary">{flight.time}</div>
+                              </div>
+                              
+                              <div className="text-center">
+                                <div className="text-xs text-muted-foreground mb-1">РЕЙС</div>
+                                <div className="font-bold text-xl">{flight.flightNumber}</div>
+                                <div className="text-sm text-muted-foreground">{flight.airline}</div>
+                              </div>
+                              
+                              <div className="text-center">
+                                <div className="text-xs text-muted-foreground mb-1">ОТКУДА</div>
+                                <div className="font-semibold text-lg">{flight.airport}</div>
+                                <div className="text-sm text-muted-foreground font-mono">{flight.icao}</div>
+                              </div>
+                              
+                              <div className="text-center">
+                                <div className="text-xs text-muted-foreground mb-1">РЕГИСТРАЦИЯ</div>
+                                <div className="font-mono font-bold text-lg text-accent">{flight.registration}</div>
+                                <div className="text-xs text-muted-foreground mt-1">СТОЯНКА: {flight.parkingPosition}</div>
+                              </div>
+                              
+                              <div className="text-center">
+                                <div className="text-xs text-muted-foreground mb-1">ВЫХОД</div>
+                                <div className="bg-muted/50 px-4 py-2 rounded-lg inline-block mb-2">
+                                  <div className="font-bold text-2xl font-mono">{flight.gate}</div>
+                                </div>
+                                <Badge className={`px-4 py-1 text-sm font-semibold ${getStatusColor(flight.status)}`}>
+                                  {flight.status}
+                                </Badge>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </TabsContent>
+                  </Tabs>
+                </div>
+              )}
             </div>
           )}
 
