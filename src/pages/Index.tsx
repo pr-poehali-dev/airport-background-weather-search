@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,13 +36,55 @@ const Index = () => {
   const [searchIcao, setSearchIcao] = useState('');
   const [scheduleAirport, setScheduleAirport] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [realDepartures, setRealDepartures] = useState<Flight[]>([]);
+  const [realArrivals, setRealArrivals] = useState<Flight[]>([]);
+  const [loadingFlights, setLoadingFlights] = useState(false);
+  const [flightError, setFlightError] = useState('');
 
-  useState(() => {
+  useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
     }, 1000);
     return () => clearInterval(timer);
-  });
+  }, []);
+
+  useEffect(() => {
+    if (scheduleAirport && currentSection === 'schedule') {
+      fetchRealFlights();
+    }
+  }, [scheduleAirport, currentSection]);
+
+  const fetchRealFlights = async () => {
+    setLoadingFlights(true);
+    setFlightError('');
+    
+    try {
+      const [depResponse, arrResponse] = await Promise.all([
+        fetch(`https://functions.poehali.dev/82fdec35-6c81-4d6c-894f-3aeebf9e015d?airport=${encodeURIComponent(scheduleAirport)}&type=departure`),
+        fetch(`https://functions.poehali.dev/82fdec35-6c81-4d6c-894f-3aeebf9e015d?airport=${encodeURIComponent(scheduleAirport)}&type=arrival`)
+      ]);
+      
+      if (!depResponse.ok || !arrResponse.ok) {
+        throw new Error('Не удалось получить данные');
+      }
+      
+      const depData = await depResponse.json();
+      const arrData = await arrResponse.json();
+      
+      if (depData.error || arrData.error) {
+        throw new Error(depData.error || arrData.error);
+      }
+      
+      setRealDepartures(depData.flights || []);
+      setRealArrivals(arrData.flights || []);
+    } catch (error) {
+      setFlightError(error instanceof Error ? error.message : 'Ошибка загрузки данных');
+      setRealDepartures([]);
+      setRealArrivals([]);
+    } finally {
+      setLoadingFlights(false);
+    }
+  };
 
   const generateFlightTime = (baseMinutes: number) => {
     const time = new Date(currentTime);
@@ -564,104 +606,140 @@ const Index = () => {
                     </h3>
                   </div>
 
-                  <Tabs defaultValue="departures" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 h-12">
-                      <TabsTrigger value="departures" className="gap-2 text-base">
-                        <Icon name="PlaneTakeoff" size={20} />
-                        Вылеты
-                      </TabsTrigger>
-                      <TabsTrigger value="arrivals" className="gap-2 text-base">
-                        <Icon name="PlaneLanding" size={20} />
-                        Прилёты
-                      </TabsTrigger>
-                    </TabsList>
-                    
-                    <TabsContent value="departures" className="space-y-4 mt-6">
-                      {departures.map((flight) => (
-                        <Card key={flight.flightNumber} className="border-border/50 bg-card/50 backdrop-blur">
-                          <CardContent className="p-6">
-                            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
-                              <div className="text-center">
-                                <div className="text-xs text-muted-foreground mb-1">ВРЕМЯ ВЫЛЕТА</div>
-                                <div className="text-3xl font-bold font-mono text-primary">{flight.time}</div>
-                              </div>
-                              
-                              <div className="text-center">
-                                <div className="text-xs text-muted-foreground mb-1">РЕЙС</div>
-                                <div className="font-bold text-xl">{flight.flightNumber}</div>
-                                <div className="text-sm text-muted-foreground">{flight.airline}</div>
-                              </div>
-                              
-                              <div className="text-center">
-                                <div className="text-xs text-muted-foreground mb-1">НАПРАВЛЕНИЕ</div>
-                                <div className="font-semibold text-lg">{flight.airport}</div>
-                                <div className="text-sm text-muted-foreground font-mono">{flight.icao}</div>
-                              </div>
-                              
-                              <div className="text-center">
-                                <div className="text-xs text-muted-foreground mb-1">РЕГИСТРАЦИЯ</div>
-                                <div className="font-mono font-bold text-lg text-accent">{flight.registration}</div>
-                                <div className="text-xs text-muted-foreground mt-1">СТОЯНКА: {flight.parkingPosition}</div>
-                              </div>
-                              
-                              <div className="text-center">
-                                <div className="text-xs text-muted-foreground mb-1">ВЫХОД</div>
-                                <div className="bg-muted/50 px-4 py-2 rounded-lg inline-block mb-2">
-                                  <div className="font-bold text-2xl font-mono">{flight.gate}</div>
+                  {loadingFlights && (
+                    <div className="text-center py-8">
+                      <div className="inline-block animate-pulse">
+                        <Icon name="Plane" className="text-primary" size={48} />
+                      </div>
+                      <p className="text-muted-foreground mt-4">Загрузка актуальных данных...</p>
+                    </div>
+                  )}
+
+                  {flightError && (
+                    <Card className="border-destructive/50 bg-destructive/10">
+                      <CardContent className="p-6 text-center">
+                        <Icon name="AlertCircle" className="text-destructive mx-auto mb-2" size={32} />
+                        <p className="text-destructive font-semibold">{flightError}</p>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {!loadingFlights && !flightError && (realDepartures.length > 0 || realArrivals.length > 0) && (
+                    <Tabs defaultValue="departures" className="w-full">
+                      <TabsList className="grid w-full grid-cols-2 h-12">
+                        <TabsTrigger value="departures" className="gap-2 text-base">
+                          <Icon name="PlaneTakeoff" size={20} />
+                          Вылеты ({realDepartures.length})
+                        </TabsTrigger>
+                        <TabsTrigger value="arrivals" className="gap-2 text-base">
+                          <Icon name="PlaneLanding" size={20} />
+                          Прилёты ({realArrivals.length})
+                        </TabsTrigger>
+                      </TabsList>
+                      
+                      <TabsContent value="departures" className="space-y-4 mt-6">
+                        {realDepartures.length === 0 ? (
+                          <Card className="border-border/50 bg-card/50">
+                            <CardContent className="p-8 text-center">
+                              <p className="text-muted-foreground">Нет данных о вылетах</p>
+                            </CardContent>
+                          </Card>
+                        ) : (
+                          realDepartures.map((flight, idx) => (
+                            <Card key={`${flight.flightNumber}-${idx}`} className="border-border/50 bg-card/50 backdrop-blur">
+                              <CardContent className="p-6">
+                                <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
+                                  <div className="text-center">
+                                    <div className="text-xs text-muted-foreground mb-1">ВРЕМЯ ВЫЛЕТА</div>
+                                    <div className="text-3xl font-bold font-mono text-primary">{flight.time}</div>
+                                  </div>
+                                  
+                                  <div className="text-center">
+                                    <div className="text-xs text-muted-foreground mb-1">РЕЙС</div>
+                                    <div className="font-bold text-xl">{flight.flightNumber}</div>
+                                    <div className="text-sm text-muted-foreground">{flight.airline}</div>
+                                  </div>
+                                  
+                                  <div className="text-center">
+                                    <div className="text-xs text-muted-foreground mb-1">НАПРАВЛЕНИЕ</div>
+                                    <div className="font-semibold text-lg">{flight.airport}</div>
+                                    <div className="text-sm text-muted-foreground font-mono">{flight.icao}</div>
+                                  </div>
+                                  
+                                  <div className="text-center">
+                                    <div className="text-xs text-muted-foreground mb-1">РЕГИСТРАЦИЯ</div>
+                                    <div className="font-mono font-bold text-lg text-accent">{flight.registration}</div>
+                                    <div className="text-xs text-muted-foreground mt-1">СТОЯНКА: {flight.parkingPosition}</div>
+                                  </div>
+                                  
+                                  <div className="text-center">
+                                    <div className="text-xs text-muted-foreground mb-1">ВЫХОД</div>
+                                    <div className="bg-muted/50 px-4 py-2 rounded-lg inline-block mb-2">
+                                      <div className="font-bold text-2xl font-mono">{flight.gate}</div>
+                                    </div>
+                                    <Badge className={`px-4 py-1 text-sm font-semibold ${getStatusColor(flight.status)}`}>
+                                      {flight.status}
+                                    </Badge>
+                                  </div>
                                 </div>
-                                <Badge className={`px-4 py-1 text-sm font-semibold ${getStatusColor(flight.status)}`}>
-                                  {flight.status}
-                                </Badge>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </TabsContent>
-                    
-                    <TabsContent value="arrivals" className="space-y-4 mt-6">
-                      {arrivals.map((flight) => (
-                        <Card key={flight.flightNumber} className="border-border/50 bg-card/50 backdrop-blur">
-                          <CardContent className="p-6">
-                            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
-                              <div className="text-center">
-                                <div className="text-xs text-muted-foreground mb-1">ВРЕМЯ ПРИЛЁТА</div>
-                                <div className="text-3xl font-bold font-mono text-primary">{flight.time}</div>
-                              </div>
-                              
-                              <div className="text-center">
-                                <div className="text-xs text-muted-foreground mb-1">РЕЙС</div>
-                                <div className="font-bold text-xl">{flight.flightNumber}</div>
-                                <div className="text-sm text-muted-foreground">{flight.airline}</div>
-                              </div>
-                              
-                              <div className="text-center">
-                                <div className="text-xs text-muted-foreground mb-1">ОТКУДА</div>
-                                <div className="font-semibold text-lg">{flight.airport}</div>
-                                <div className="text-sm text-muted-foreground font-mono">{flight.icao}</div>
-                              </div>
-                              
-                              <div className="text-center">
-                                <div className="text-xs text-muted-foreground mb-1">РЕГИСТРАЦИЯ</div>
-                                <div className="font-mono font-bold text-lg text-accent">{flight.registration}</div>
-                                <div className="text-xs text-muted-foreground mt-1">СТОЯНКА: {flight.parkingPosition}</div>
-                              </div>
-                              
-                              <div className="text-center">
-                                <div className="text-xs text-muted-foreground mb-1">ВЫХОД</div>
-                                <div className="bg-muted/50 px-4 py-2 rounded-lg inline-block mb-2">
-                                  <div className="font-bold text-2xl font-mono">{flight.gate}</div>
+                              </CardContent>
+                            </Card>
+                          ))
+                        )}
+                      </TabsContent>
+                      
+                      <TabsContent value="arrivals" className="space-y-4 mt-6">
+                        {realArrivals.length === 0 ? (
+                          <Card className="border-border/50 bg-card/50">
+                            <CardContent className="p-8 text-center">
+                              <p className="text-muted-foreground">Нет данных о прилётах</p>
+                            </CardContent>
+                          </Card>
+                        ) : (
+                          realArrivals.map((flight, idx) => (
+                            <Card key={`${flight.flightNumber}-arr-${idx}`} className="border-border/50 bg-card/50 backdrop-blur">
+                              <CardContent className="p-6">
+                                <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
+                                  <div className="text-center">
+                                    <div className="text-xs text-muted-foreground mb-1">ВРЕМЯ ПРИЛЁТА</div>
+                                    <div className="text-3xl font-bold font-mono text-primary">{flight.time}</div>
+                                  </div>
+                                  
+                                  <div className="text-center">
+                                    <div className="text-xs text-muted-foreground mb-1">РЕЙС</div>
+                                    <div className="font-bold text-xl">{flight.flightNumber}</div>
+                                    <div className="text-sm text-muted-foreground">{flight.airline}</div>
+                                  </div>
+                                  
+                                  <div className="text-center">
+                                    <div className="text-xs text-muted-foreground mb-1">ОТКУДА</div>
+                                    <div className="font-semibold text-lg">{flight.airport}</div>
+                                    <div className="text-sm text-muted-foreground font-mono">{flight.icao}</div>
+                                  </div>
+                                  
+                                  <div className="text-center">
+                                    <div className="text-xs text-muted-foreground mb-1">РЕГИСТРАЦИЯ</div>
+                                    <div className="font-mono font-bold text-lg text-accent">{flight.registration}</div>
+                                    <div className="text-xs text-muted-foreground mt-1">СТОЯНКА: {flight.parkingPosition}</div>
+                                  </div>
+                                  
+                                  <div className="text-center">
+                                    <div className="text-xs text-muted-foreground mb-1">ВЫХОД</div>
+                                    <div className="bg-muted/50 px-4 py-2 rounded-lg inline-block mb-2">
+                                      <div className="font-bold text-2xl font-mono">{flight.gate}</div>
+                                    </div>
+                                    <Badge className={`px-4 py-1 text-sm font-semibold ${getStatusColor(flight.status)}`}>
+                                      {flight.status}
+                                    </Badge>
+                                  </div>
                                 </div>
-                                <Badge className={`px-4 py-1 text-sm font-semibold ${getStatusColor(flight.status)}`}>
-                                  {flight.status}
-                                </Badge>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </TabsContent>
-                  </Tabs>
+                              </CardContent>
+                            </Card>
+                          ))
+                        )}
+                      </TabsContent>
+                    </Tabs>
+                  )}
                 </div>
               )}
             </div>

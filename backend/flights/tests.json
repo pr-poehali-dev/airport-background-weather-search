@@ -1,0 +1,26 @@
+{
+  "tests": [
+    {
+      "name": "Test missing airport parameter",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "Airport name is required"
+      }
+    },
+    {
+      "name": "Test with airport parameter",
+      "method": "GET",
+      "path": "/?airport=Толмачёво&type=departure",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "airport": "string",
+        "iata": "string",
+        "type": "string",
+        "flights": "array"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
